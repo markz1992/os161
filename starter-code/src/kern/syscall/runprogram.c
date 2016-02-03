@@ -132,5 +132,3 @@ runprogram(char *progname, char **args, unsigned long nargs)
 	panic("enter_new_process returned\n");
 	return EINVAL;
 }
-
-//TESTING NSIDJNG
