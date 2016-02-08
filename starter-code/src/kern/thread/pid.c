@@ -314,11 +314,49 @@ pid_unalloc(pid_t theirpid)
 int
 pid_detach(pid_t childpid)
 {
-	(void)childpid;
+	// (void)childpid;
 	
 	// Implement me
-	KASSERT(false);
-	return EUNIMP;
+	// KASSERT(false);
+	// return EUNIMP;
+
+	lock_acquire(pidlock);
+
+	struct pidinfo *child = pi_get(childpid);
+
+	//can't find childpid
+	if (!child) {
+		lock_release(pidlock);
+		return ESRCH;
+	}
+
+	// already detached
+	if (child->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);
+		return EINVAL;
+	}
+
+	// caller is not parent of child
+	if (child->pi_ppid != curthread->t_pid) {
+		lock_release(pidlock);
+		return EINVAL;
+	}
+
+	// child is INVALID_PID or BOOTUP_PID
+	if (childpid == INVALID_PID || childpid == BOOTUP_PID) {
+		lock_release(pidlock);
+		return EINVAL;
+	}
+
+	// if child exited, drop otherwise remove
+	if (child->pi_exited){
+		pi_drop(childpid);
+	} else {
+		child->pi_ppid = INVALID_PID;
+	}
+
+	lock_release(pidlock);
+	return 0;
 }
 
 /*
@@ -356,11 +394,11 @@ pid_exit(int status, bool dodetach)
 int
 pid_join(pid_t targetpid, int *status, int flags)
 {
-	(void)targetpid;
-	(void)status;
-	(void)flags;
-	
+	// (void)targetpid;
+	// (void)status;
+	// (void)flags;
+
 	// Implement me.
-	KASSERT(false);
-	return EUNIMP;
+	// KASSERT(false);
+	// return EUNIMP;
 }
