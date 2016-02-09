@@ -459,7 +459,7 @@ pid_join(pid_t targetpid, int *status, int flags)
 		cv_wait(thread->pi_cv, pidlock);
 	}
 
-	if ((thread->pi_exited) && (status != NULL)) {
+	if ((thread->pi_exited == true) && (status != NULL)) {
 		*status = thread->pi_exitstatus;
 	}
 
