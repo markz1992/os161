@@ -396,7 +396,7 @@ pid_exit(int status, bool dodetach)
 		}
 		lock_acquire(pidlock);
 	}
-	
+
 	// if parent pid invalid, drop
 	if (my_pi->pi_ppid == INVALID_PID) {
         pi_drop(my_pi->pi_pid);
@@ -449,4 +449,20 @@ pid_join(pid_t targetpid, int *status, int flags)
 		lock_release(pidlock);
 		return -EDEADLK;
 	}
+
+	if (flags == WNOHANG) {
+		lock_release(pidlock);
+		return 0;
+	}
+
+	if (!thread->pi_exited) {
+		cv_wait(thread->pi_cv, pidlock);
+	}
+
+	if ((thread->pi_exited) && (status != NULL)) {
+		*status = thread->pi_exitstatus;
+	}
+
+	lock_release(pidlock);
+	return targetpid;
 }
