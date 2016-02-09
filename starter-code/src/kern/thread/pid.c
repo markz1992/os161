@@ -373,7 +373,7 @@ pid_exit(int status, bool dodetach)
 {
 	struct pidinfo *my_pi;
 	
-	(void)dodetach; /* for compiler - delete when dodetach has real use */
+	// (void)dodetach; /* for compiler - delete when dodetach has real use */
 
 	// Implement me. Existing code simply sets the exit status.
 	lock_acquire(pidlock);
@@ -381,6 +381,26 @@ pid_exit(int status, bool dodetach)
 	my_pi = pi_get(curthread->t_pid);
 	KASSERT(my_pi != NULL);
 	my_pi->pi_exitstatus = status;
+	my_pi->pi_exited = true;
+
+	//tells others about lock
+	cv_broadcast(my_pi->pi_cv, pidlock);
+
+	if (dodetach) { //detach children
+		lock_release(pidlock);
+		for (int i = PID_MIN; i <= PID_MAX; i++) {
+			if ((pidinfo[i]) && (pidinfo[i]->pi_ppid == my_pi->pi_ppid)) {
+				pidinfo[i]->pi_ppid = INVALID_PID;
+				pid_detach(pidinfo[i]->pi_ppid);
+			}
+		}
+		lock_acquire(pidlock);
+	}
+	
+	// if parent pid invalid, drop
+	if (my_pi->pi_ppid == INVALID_PID) {
+        pi_drop(my_pi->pi_pid);
+    }
 
 	lock_release(pidlock);
 }
@@ -401,4 +421,32 @@ pid_join(pid_t targetpid, int *status, int flags)
 	// Implement me.
 	// KASSERT(false);
 	// return EUNIMP;
+
+	lock_acquire(pidlock);
+
+	struct pidinfo *thread = pi_get(targetpid);
+
+	// no thread found
+	if (!thread) {
+		lock_release(pidlock);
+		return -ESRCH;
+	}
+
+	// correspondingg thread to targetpid has been detached
+	if (thread->pi_ppid == INVALID_PID) {
+		lock_release(pidlock);
+		return -EINVAL;
+	}
+
+	// targetpid is INVALID_PID or BOOTUP_PID
+	if (targetpid == INVALID_PID || targetpid == BOOTUP_PID) {
+		lock_release(pidlock);
+		return -EINVAL;
+	}
+
+	// targetpid refers to calling method
+	if (targetpid == curthread->t_pid) {
+		lock_release(pidlock);
+		return -EDEADLK;
+	}
 }

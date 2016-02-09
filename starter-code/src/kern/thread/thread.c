@@ -575,6 +575,8 @@ thread_fork(const char *name,
 	 */
 	if (ret != NULL) {
 		*ret = newthread->t_pid;
+	} else {
+		pid_detach(newthread->t_pid);
 	}
 
 	return 0;
@@ -831,9 +833,17 @@ void
 thread_exit(int exitcode)
 {
 	struct thread *cur;
-        (void)exitcode;  // suppress warning until code gets written
+        // (void)exitcode;  // suppress warning until code gets written
 
 	cur = curthread;
+
+	//Call pid_exit
+	if (cur->t_addrspace) {
+		pid_exit(exitcode, true);
+	}
+	else {
+		pid_exit(exitcode, false);
+	}
 
 	/* VFS fields */
 	if (cur->t_cwd) {
